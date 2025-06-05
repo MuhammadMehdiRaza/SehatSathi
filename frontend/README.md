@@ -1,70 +1,50 @@
-# Getting Started with Create React App
+# Sehat Saathi Hospital Management System - Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This is the frontend application for the Sehat Saathi Hospital Management System.
 
-## Available Scripts
+## Setup Instructions
 
-In the project directory, you can run:
+1. Install dependencies:
+```
+npm install
+```
 
-### `npm start`
+2. Start the development server:
+```
+npm start
+```
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Chatbot Configuration
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+The patient interface includes a chatbot feature that can be configured to use either:
+1. Internal API (default) - Uses the built-in Django backend endpoint
+2. External API service - Integrates with external AI services like OpenAI
 
-### `npm test`
+### Using the Internal API
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+No additional configuration is required for the internal API. The chatbot will use the Django backend endpoint by default.
 
-### `npm run build`
+### Using an External API (e.g., OpenAI)
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+To configure the chatbot to use an external API:
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+1. Create a `.env` file in the frontend root directory with the following content:
+```
+REACT_APP_USE_EXTERNAL_API=true
+REACT_APP_CHATBOT_API_KEY=your_api_key_here
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+2. Replace `your_api_key_here` with your actual API key from the service provider.
 
-### `npm run eject`
+3. Restart the development server for the changes to take effect.
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+### Supported External Services
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+The current implementation supports:
+- OpenAI API (GPT-3.5/GPT-4)
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+To modify the configuration or add support for other API services, edit the `apiUtils.js` file in the `src/utils` directory.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## License
 
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+This project is licensed under the MIT License. 
