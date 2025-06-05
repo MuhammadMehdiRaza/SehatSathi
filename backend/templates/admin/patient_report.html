@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Patient Registration Report</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.5;
+            margin: 20px;
+        }
+        h1 {
+            color: #2a5885;
+            text-align: center;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+        }
+        .report-header {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #666;
+        }
+        .summary {
+            background-color: #f9f9f9;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+            font-size: 12px;
+        }
+        th {
+            background-color: #f5f5f5;
+        }
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #777;
+        }
+    </style>
+</head>
+<body>
+    <h1>{{ title }}</h1>
+    <div class="report-header">
+        <p>Registered From: {{ from_date }} To: {{ to_date }}</p>
+        <p>Generated on: {{ today }}</p>
+    </div>
+
+    <div class="summary">
+        <h2>Summary</h2>
+        <p><strong>Total Patients Registered:</strong> {{ total_count }}</p>
+    </div>
+
+    <h2>Patient Details</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Gender</th>
+                <th>Date of Birth</th>
+                <th>Blood Group</th>
+                <th>Phone</th>
+                <th>Address</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for patient in patients %}
+            <tr>
+                <td>{{ patient.id }}</td>
+                <td>{{ patient.user.first_name }} {{ patient.user.last_name }}</td>
+                <td>{{ patient.user.email }}</td>
+                <td>{{ patient.get_gender_display }}</td>
+                <td>{{ patient.date_of_birth|default:"N/A" }}</td>
+                <td>{{ patient.blood_group|default:"N/A" }}</td>
+                <td>{{ patient.user.phone_number|default:"N/A" }}</td>
+                <td>{{ patient.address|truncatechars:50|default:"N/A" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="footer">
+        <p>Generated from Sehat Sathi Hospital Management System</p>
+    </div>
+</body>
+</html> 

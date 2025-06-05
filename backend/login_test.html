@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login Test</title>
+    <script>
+        async function testLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const result = document.getElementById('result');
+            
+            try {
+                // First get CSRF token
+                const csrfResponse = await fetch('http://localhost:8000/api/current-user/', {
+                    method: 'GET',
+                    credentials: 'include',
+                });
+                
+                // Extract CSRF token from cookies
+                const cookies = document.cookie.split(';');
+                let csrfToken = '';
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.startsWith('csrftoken=')) {
+                        csrfToken = cookie.substring(10);
+                        break;
+                    }
+                }
+                
+                console.log('CSRF Token:', csrfToken);
+                
+                // Now try to login
+                const response = await fetch('http://localhost:8000/api/login/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken,
+                    },
+                    body: JSON.stringify({ email, password }),
+                    credentials: 'include',
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    result.innerHTML = '<div style="color: green;">Login successful</div>';
+                    result.innerHTML += '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                } else {
+                    result.innerHTML = '<div style="color: red;">Login failed</div>';
+                    result.innerHTML += '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                }
+            } catch (error) {
+                result.innerHTML = '<div style="color: red;">Error: ' + error.message + '</div>';
+            }
+        }
+    </script>
+</head>
+<body>
+    <h1>Login Test</h1>
+    <div>
+        <label for="email">Email:</label>
+        <input type="email" id="email" value="patient@example.com" />
+    </div>
+    <div>
+        <label for="password">Password:</label>
+        <input type="password" id="password" value="password123" />
+    </div>
+    <div>
+        <button onclick="testLogin()">Test Login</button>
+    </div>
+    <div id="result"></div>
+</body>
+</html> 
