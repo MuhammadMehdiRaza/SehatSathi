@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
-
+from hms_app.views import login_view
 # Create a router for API viewsets
 router = DefaultRouter()
 
@@ -21,7 +21,7 @@ router.register(r'permissions', views.PermissionViewSet, basename='permission')
 urlpatterns = [
     # Authentication endpoints
     path('register/', views.RegisterView.as_view(), name='register'),
-    path('login/', views.login_view, name='login'),
+    path('login/', login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
     path('current-user/', views.current_user, name='current-user'),
     path('users/profile/', views.user_profile, name='user-profile'),

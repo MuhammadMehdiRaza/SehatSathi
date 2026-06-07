@@ -79,10 +79,10 @@ export default function HMSDashboard() {
         apiClient.cache.clear();
       }
       
-      // Fetch all data for the admin dashboard with proper error handling
+      // Fetch all data for the admin dashboard with proper error handling and namespaces
       try {
-        console.log('Fetching doctors data...');
-        const doctorsResponse = await apiClient.get('/doctors/');
+        print('Fetching doctors data...');
+        const doctorsResponse = await apiClient.get('/api/doctors/');
         console.log('Doctors data:', doctorsResponse.data);
         
         const sanitizedDoctors = Array.isArray(doctorsResponse.data) 
@@ -107,9 +107,9 @@ export default function HMSDashboard() {
       try {
         console.log('Fetching patients data...');
         
-        // Fetch both patient data sources
-        const patientProfilesPromise = apiClient.get('/patients/');
-        const hmsPatientPromise = apiClient.get('/hms-patients/');
+        // Fetch both patient data sources using explicit api namespaces
+        const patientProfilesPromise = apiClient.get('/api/patients/');
+        const hmsPatientPromise = apiClient.get('/api/patients/'); // Updated fallback to match primary router mapping
         
         // Wait for both requests to complete
         const [patientProfilesResponse, hmsPatientResponse] = await Promise.all([
@@ -118,7 +118,6 @@ export default function HMSDashboard() {
         ]);
         
         console.log('PatientProfiles data:', patientProfilesResponse.data);
-        console.log('HMS Patients data:', hmsPatientResponse.data);
         
         // Create maps for easier lookups
         const hmsPatientMap = {};
@@ -129,7 +128,6 @@ export default function HMSDashboard() {
           hmsPatientResponse.data.forEach(patient => {
             const key = `${patient.first_name}-${patient.last_name}-${patient.reg_num}`;
             hmsPatientMap[key] = patient;
-            // Also index by reg_num for quicker lookup
             if (patient.reg_num) {
               hmsPatientMap[patient.reg_num] = patient;
             }
@@ -153,7 +151,6 @@ export default function HMSDashboard() {
         // Combine both data sources
         let allPatients = [];
         
-        // First, process HMS patients and find matching profiles
         if (Array.isArray(hmsPatientResponse.data)) {
           allPatients = hmsPatientResponse.data.map(hmsPatient => {
             const firstName = hmsPatient.first_name;
@@ -178,45 +175,16 @@ export default function HMSDashboard() {
           });
         }
         
-        // Then add any PatientProfiles that don't have HMS records
-        if (Array.isArray(patientProfilesResponse.data)) {
-          patientProfilesResponse.data.forEach(profile => {
-            if (profile.user_details) {
-              const userName = profile.user_details.username;
-              const firstName = profile.user_details.first_name;
-              const lastName = profile.user_details.last_name;
-              const key = `${firstName}-${lastName}-${userName}`;
-              
-              // If we don't already have this patient from HMS data
-              if (!hmsPatientMap[key] && !hmsPatientMap[userName]) {
-                allPatients.push({
-                  patient_id: profile.patient_id || profile.user,
-                  auth_id: profile.user_details.id,
-                  reg_num: userName,
-                  first_name: firstName,
-                  last_name: lastName,
-                  gender: profile.gender || '',
-                  date_of_birth: profile.date_of_birth || '',
-                  contact_number: profile.contact_number || '',
-                  email: profile.user_details.email || '',
-                  address: profile.address || ''
-                });
-              }
-            }
-          });
-        }
-        
         console.log('Combined patients data:', allPatients);
         setPatients(allPatients);
       } catch (patientErr) {
         console.error('Failed to fetch patients:', patientErr);
-        console.error('Error details:', patientErr.response?.data || patientErr.message);
         setPatients([]);
       }
       
       try {
         console.log('Fetching appointments data...');
-        const appointmentsResponse = await apiClient.get('/appointments/');
+        const appointmentsResponse = await apiClient.get('/api/appointments/');
         console.log('Appointments data:', appointmentsResponse.data);
         
         const sanitizedAppointments = Array.isArray(appointmentsResponse.data)
@@ -239,10 +207,10 @@ export default function HMSDashboard() {
         setAppointments([]);
       }
       
-      // Fetch real receptionist data from database
+      // Fetch real receptionist data from database via API namespace
       try {
         console.log('Fetching receptionists data...');
-        const receptionistsResponse = await apiClient.get('/receptionists/');
+        const receptionistsResponse = await apiClient.get('/api/receptionists/');
         console.log('Receptionists data:', receptionistsResponse.data);
         
         const sanitizedReceptionists = Array.isArray(receptionistsResponse.data)
@@ -261,11 +229,9 @@ export default function HMSDashboard() {
         setReceptionists(sanitizedReceptionists);
       } catch (receptionistErr) {
         console.error('Failed to fetch receptionists:', receptionistErr);
-        // Use empty array instead of mock data
         setReceptionists([]);
       }
       
-      // Generate logs for demonstration
       const mockLogs = generateMockLogs(25);
       setLogs(mockLogs);
       setLogsLoading(false);
@@ -276,8 +242,6 @@ export default function HMSDashboard() {
       console.error('Failed to fetch data:', err);
       setError(`Failed to load dashboard data. ${err.message || 'Please try again.'}`);
       setLoading(false);
-      
-      // Even on error, initialize with empty arrays to prevent blank screen
       setDataInitialized(true);
     }
   };
@@ -286,15 +250,10 @@ export default function HMSDashboard() {
   const fetchSystemLogs = async () => {
     setLogsLoading(true);
     try {
-      // Don't make actual API call, just use mock data
-      // const response = await apiClient.get('/logs/');
-      
-      // Generate mock log entries
       const mockLogs = generateMockLogs(25);
       setLogs(mockLogs);
     } catch (err) {
       console.error("Error generating logs:", err);
-      // Generate mock log entries as fallback with warning about failed fetch
       const errorLog = {
         id: `error-${Date.now()}`,
         timestamp: new Date().toISOString(),
@@ -337,10 +296,7 @@ export default function HMSDashboard() {
     const now = new Date();
     
     for (let i = 0; i < count; i++) {
-      // Generate logs with decreasing timestamps (newer to older)
       const timestamp = new Date(now.getTime() - (i * 1000 * 60 * Math.floor(Math.random() * 60)));
-      
-      // Create sample details object
       const detailsObj = {
         userId: Math.floor(Math.random() * 1000),
         ip: `192.168.1.${Math.floor(Math.random() * 255)}`,
@@ -359,23 +315,17 @@ export default function HMSDashboard() {
       });
     }
     
-    // Sort by timestamp (newest first)
     mockLogs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    
     return mockLogs;
   };
 
   // Reset data cache and fetch fresh data
   const resetDataCache = () => {
-    // Reset the data fetched flag
     dataFetched.current = false;
-    
     try {
-      // Clear API client cache if available
       if (apiClient.cache && typeof apiClient.cache.clear === 'function') {
         apiClient.cache.clear();
       } else {
-        // Access the cache directly from the imported module
         const cache = window.apiClientCache || {};
         if (cache.clear && typeof cache.clear === 'function') {
           cache.clear();
@@ -385,11 +335,8 @@ export default function HMSDashboard() {
       console.warn('Failed to clear cache:', e);
     }
     
-    // Reset state
     setLoading(true);
     setError(null);
-    
-    // Fetch fresh data
     fetchData();
   };
 
@@ -401,12 +348,9 @@ export default function HMSDashboard() {
         fetchSystemLogs();
       } catch (error) {
         console.error("Error while fetching logs:", error);
-        // Set default mock logs in case of error
         setLogs(generateMockLogs(15));
       }
     }
-    
-    // If switching to diagnostics tab, clear any previous errors
     if (tab === 'diagnostics') {
       setError(null);
     }
@@ -486,21 +430,13 @@ export default function HMSDashboard() {
   const handleDoctorSubmit = async (doctorData) => {
     try {
       let response;
-      
       if (modalMode === 'add') {
-        // Check if doctorData already has a 'data' property (which means it's from the direct axios call)
         const newDoctor = doctorData.data ? doctorData.data : doctorData;
-        
-        // Add the new doctor to the list
         setDoctors([...doctors, newDoctor]);
       } else {
-        // Send data to backend for updating an existing doctor
-        response = await apiClient.put(`/doctors/${doctorData.doctor_id}/`, doctorData);
-        
-        // Update the doctor in the local list
+        response = await apiClient.put(`/api/doctors/${doctorData.doctor_id}/`, doctorData);
         setDoctors(doctors.map(d => d.doctor_id === doctorData.doctor_id ? response.data : d));
       }
-      
       setShowDoctorModal(false);
     } catch (error) {
       console.error('Error saving doctor:', error);
@@ -522,7 +458,7 @@ export default function HMSDashboard() {
       try {
         if (doctor.doctor_id && !doctor.doctor_id.toString().startsWith('temp-') && 
             !doctor.doctor_id.toString().startsWith('new-')) {
-        await apiClient.delete(`/doctors/${doctor.doctor_id}/`);
+          await apiClient.delete(`/api/doctors/${doctor.doctor_id}/`);
         }
         setDoctors(doctors.filter(d => d.doctor_id !== doctor.doctor_id));
         setShowConfirmDialog(false);
@@ -556,32 +492,17 @@ export default function HMSDashboard() {
   const handlePatientSubmit = async (patientData) => {
     try {
       if (modalMode === 'add') {
-        // PatientForm.jsx already handled the creation via the no-csrf endpoint.
-        // The patientData here is the response from that successful creation.
-        const newPatient = patientData.data; // Extract the actual patient object
-        
-        // Add the new patient to the list
+        const newPatient = patientData.data; 
         setPatients(prevPatients => [...prevPatients, newPatient]);
-        
-        // Fetch updated patient list to ensure data consistency and get full patient object if needed
-        // This might be redundant if patientData.data is complete, but good for robustness.
-        // Consider if PatientForm.jsx returns the complete patient object needed for the list.
-        // await fetchPatients(); // Optionally re-fetch all patients if needed
-
-      } else { // For 'edit' mode
-        // Send data to backend for updating an existing patient
-        const response = await apiClient.put(`/patients/${patientData.patient_id}/`, patientData);
-        
-        // Update the patient in the local list
+      } else {
+        const response = await apiClient.put(`/api/patients/${patientData.patient_id}/`, patientData);
         setPatients(prevPatients => 
           prevPatients.map(p => p.patient_id === patientData.patient_id ? response.data : p)
         );
       }
-      
       setShowPatientModal(false);
     } catch (error) {
       console.error('Error in handlePatientSubmit:', error);
-      // Check if the error has a response and specific data to display
       const errorMessage = error.response?.data?.message || error.message || 'An unknown error occurred.';
       alert(`Failed to ${modalMode === 'add' ? 'add' : 'update'} patient: ${errorMessage}`);
     }
@@ -593,7 +514,7 @@ export default function HMSDashboard() {
       try {
         if (patient.patient_id && !patient.patient_id.toString().startsWith('temp-') && 
             !patient.patient_id.toString().startsWith('new-')) {
-        await apiClient.delete(`/patients/${patient.patient_id}/`);
+          await apiClient.delete(`/api/patients/${patient.patient_id}/`);
         }
         setPatients(patients.filter(p => p.patient_id !== patient.patient_id));
         setShowConfirmDialog(false);
@@ -624,32 +545,25 @@ export default function HMSDashboard() {
   // Get filtered appointments
   const getFilteredAppointments = () => {
     return appointments.filter(appointment => {
-      // Filter by doctor if set
       if (appointmentFilters.doctorId && 
           appointment.doctor_id.toString() !== appointmentFilters.doctorId) {
         return false;
       }
-      
-      // Filter by patient if set
       if (appointmentFilters.patientId && 
           appointment.patient_id.toString() !== appointmentFilters.patientId) {
         return false;
       }
-      
-      // Filter by status if set
       if (appointmentFilters.status && 
           appointment.status !== appointmentFilters.status) {
         return false;
       }
-      
       return true;
     });
   };
 
   const handleAppointmentSubmit = async (appointmentData) => {
     try {
-      // Since we're only viewing appointments now, just close the modal
-    setShowAppointmentModal(false);
+      setShowAppointmentModal(false);
     } catch (error) {
       console.error('Error with appointment:', error);
       alert(`An error occurred: ${error.message || 'Unknown error'}`);
@@ -662,7 +576,7 @@ export default function HMSDashboard() {
       try {
         if (appointment.appointment_id && !appointment.appointment_id.toString().startsWith('temp-') && 
             !appointment.appointment_id.toString().startsWith('new-')) {
-        await apiClient.delete(`/appointments/${appointment.appointment_id}/`);
+          await apiClient.delete(`/api/appointments/${appointment.appointment_id}/`);
         }
         setAppointments(appointments.filter(a => a.appointment_id !== appointment.appointment_id));
         setShowConfirmDialog(false);
@@ -677,20 +591,13 @@ export default function HMSDashboard() {
   // Format JSON details for display
   const formatLogDetails = (details) => {
     if (!details) return null;
-    
     try {
-      // If details is already a string, try to parse it
       const detailsObj = typeof details === 'string' ? JSON.parse(details) : details;
-      
-      // Check if it's an object after parsing
       if (detailsObj && typeof detailsObj === 'object') {
         return JSON.stringify(detailsObj, null, 2);
       }
-      
-      // If it's a primitive value or parsing failed but still a string
       return typeof details === 'string' ? details : JSON.stringify(details);
     } catch (e) {
-      // If parsing fails, return the original string
       return typeof details === 'string' ? details : String(details);
     }
   };
@@ -717,13 +624,8 @@ export default function HMSDashboard() {
   const handleReceptionistSubmit = async (receptionistData) => {
     try {
       if (modalMode === 'add') {
-        // ReceptionistForm.jsx already handled the creation via the no-csrf endpoint.
-        // The receptionistData here is the response from that successful creation.
         const receptionistResponse = receptionistData.data?.data || receptionistData.data || receptionistData;
-        
-        // Add the new receptionist to the list if it's valid
         if (receptionistResponse && (receptionistResponse.receptionist_id || receptionistResponse.id)) {
-          // Format the data to match what the list expects
           const formattedReceptionist = {
             receptionist_id: receptionistResponse.receptionist_id || receptionistResponse.id,
             first_name: receptionistResponse.first_name || receptionistResponse.user?.first_name || '',
@@ -734,29 +636,20 @@ export default function HMSDashboard() {
             address: receptionistResponse.address || '',
             user_id: receptionistResponse.user?.id || null
           };
-          
           setReceptionists(prevReceptionists => [...prevReceptionists, formattedReceptionist]);
         }
       } else if (modalMode === 'edit') {
-        // Send data to backend for updating an existing receptionist
         const receptionistId = receptionistData.receptionist_id || receptionistData.id;
-        const response = await apiClient.put(`/admin/register/receptionist/${receptionistId}/`, receptionistData);
-        
-        // Update the receptionist in the local list
+        const response = await apiClient.put(`/api/receptionists/${receptionistId}/`, receptionistData);
         setReceptionists(prevReceptionists => 
           prevReceptionists.map(item => item.receptionist_id === receptionistId ? response.data : item)
         );
       }
-      
-      // Close the modal after successful operation
       setShowReceptionistModal(false);
     } catch (error) {
       console.error('Error in handleReceptionistSubmit:', error);
-      // Check if the error has a response and specific data to display
       const errorMessage = error.response?.data?.message || error.message || 'An unknown error occurred.';
       alert(`Failed to ${modalMode === 'add' ? 'add' : 'update'} receptionist: ${errorMessage}`);
-      
-      // Keep modal open on error
       setShowReceptionistModal(true);
     }
   };
@@ -766,7 +659,7 @@ export default function HMSDashboard() {
     setDeleteAction(() => async () => {
       try {
         const receptionistId = receptionist.receptionist_id || receptionist.id;
-        await apiClient.delete(`/admin/register/receptionist/${receptionistId}/`);
+        await apiClient.delete(`/api/receptionists/${receptionistId}/`);
         setReceptionists(prev => prev.filter(r => r.receptionist_id !== receptionistId));
         setShowConfirmDialog(false);
       } catch (error) {
@@ -777,33 +670,26 @@ export default function HMSDashboard() {
     setShowConfirmDialog(true);
   };
 
-  // Don't render anything if not authenticated
   if (!user || user.userType !== 'Admin') {
     return null;
   }
 
-  // Show loading state if data is not yet initialized
   if (loading && !dataInitialized) {
     return <div className="loading-spinner">Loading HMS dashboard...</div>;
   }
 
-  // Show error message with retry option
   if (error && !dataInitialized) {
     return (
       <div className="error-message">
         <h3>Error</h3>
         <p>{error}</p>
-        <button 
-          onClick={resetDataCache}
-          className="edit-profile-btn"
-        >
+        <button onClick={resetDataCache} className="edit-profile-btn">
           Try Again
         </button>
       </div>
     );
   }
 
-  // Dashboard stats for overview
   const dashboardStats = [
     { name: 'Total Doctors', value: doctors.length, icon: 'fa-user-md', color: 'blue' },
     { name: 'Total Patients', value: patients.length, icon: 'fa-users', color: 'green' },
@@ -827,46 +713,25 @@ export default function HMSDashboard() {
         </div>
         
         <nav className="dashboard-nav">
-          <button 
-            className={`nav-item ${activeTab === 'overview' ? 'active' : ''}`}
-            onClick={() => handleTabChange('overview')}
-          >
+          <button className={`nav-item ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => handleTabChange('overview')}>
             <i className="fas fa-th-large"></i> Overview
           </button>
-          <button 
-            className={`nav-item ${activeTab === 'doctors' ? 'active' : ''}`}
-            onClick={() => handleTabChange('doctors')}
-          >
+          <button className={`nav-item ${activeTab === 'doctors' ? 'active' : ''}`} onClick={() => handleTabChange('doctors')}>
             <i className="fas fa-user-md"></i> Doctors
           </button>
-          <button 
-            className={`nav-item ${activeTab === 'patients' ? 'active' : ''}`}
-            onClick={() => handleTabChange('patients')}
-          >
+          <button className={`nav-item ${activeTab === 'patients' ? 'active' : ''}`} onClick={() => handleTabChange('patients')}>
             <i className="fas fa-users"></i> Patients
           </button>
-          <button 
-            className={`nav-item ${activeTab === 'appointments' ? 'active' : ''}`}
-            onClick={() => handleTabChange('appointments')}
-          >
+          <button className={`nav-item ${activeTab === 'appointments' ? 'active' : ''}`} onClick={() => handleTabChange('appointments')}>
             <i className="fas fa-calendar-alt"></i> Appointments
           </button>
-          <button 
-            className={`nav-item ${activeTab === 'receptionists' ? 'active' : ''}`}
-            onClick={() => handleTabChange('receptionists')}
-          >
+          <button className={`nav-item ${activeTab === 'receptionists' ? 'active' : ''}`} onClick={() => handleTabChange('receptionists')}>
             <i className="fas fa-user-tie"></i> Receptionists
           </button>
-          <button 
-            className={`nav-item ${activeTab === 'logs' ? 'active' : ''}`}
-            onClick={() => handleTabChange('logs')}
-          >
+          <button className={`nav-item ${activeTab === 'logs' ? 'active' : ''}`} onClick={() => handleTabChange('logs')}>
             <i className="fas fa-list-alt"></i> System Logs
           </button>
-          <button 
-            className={`nav-item ${activeTab === 'diagnostics' ? 'active' : ''}`}
-            onClick={() => handleTabChange('diagnostics')}
-          >
+          <button className={`nav-item ${activeTab === 'diagnostics' ? 'active' : ''}`} onClick={() => handleTabChange('diagnostics')}>
             <i className="fas fa-heartbeat"></i> Diagnostics
           </button>
         </nav>
@@ -885,7 +750,6 @@ export default function HMSDashboard() {
         {activeTab === 'overview' && (
           <div className="dashboard-section">
             <h2>Hospital Overview</h2>
-            
             <div className="stats-grid">
               {dashboardStats.map((stat, index) => (
                 <div className={`stat-card stat-${stat.color}`} key={index}>
@@ -905,29 +769,22 @@ export default function HMSDashboard() {
                 <h3>Recent Appointments</h3>
                 <div className="recent-items">
                   {appointments.slice(0, 5).map(appointment => {
-                    // Safely format the date
-                    const appointmentDate = appointment.appointment_date ? 
-                      new Date(appointment.appointment_date) : new Date();
-                    
-                    const dateStr = isNaN(appointmentDate.getTime()) ? 
-                      'Invalid date' : appointmentDate.toLocaleString();
-                    
+                    const appointmentDate = appointment.appointment_date ? new Date(appointment.appointment_date) : new Date();
+                    const dateStr = isNaN(appointmentDate.getTime()) ? 'Invalid date' : appointmentDate.toLocaleString();
                     return (
                       <div className="recent-item" key={appointment.appointment_id || `appointment-${Math.random()}`}>
-                      <div className="recent-item-info">
+                        <div className="recent-item-info">
                           <h4>{appointment.patient_name || 'Unknown Patient'}</h4>
                           <p>with Dr. {appointment.doctor_name || 'Unknown Doctor'}</p>
                           <small>{dateStr}</small>
-                      </div>
+                        </div>
                         <span className={`status-badge status-${(appointment.status || 'scheduled').toLowerCase()}`}>
                           {appointment.status || 'Scheduled'}
-                      </span>
-                    </div>
+                        </span>
+                      </div>
                     );
                   })}
-                  {appointments.length === 0 && (
-                    <p>No appointments scheduled yet.</p>
-                  )}
+                  {appointments.length === 0 && <p>No appointments scheduled yet.</p>}
                 </div>
               </div>
               
@@ -935,16 +792,13 @@ export default function HMSDashboard() {
                 <h3>Quick Actions</h3>
                 <div className="quick-actions">
                   <button className="quick-action-btn" onClick={handleAddDoctor}>
-                    <i className="fas fa-plus-circle"></i>
-                    Add New Doctor
+                    <i className="fas fa-plus-circle"></i> Add New Doctor
                   </button>
                   <button className="quick-action-btn" onClick={handleAddPatient}>
-                    <i className="fas fa-user-plus"></i>
-                    Register Patient
+                    <i className="fas fa-user-plus"></i> Register Patient
                   </button>
                   <button className="quick-action-btn" onClick={() => handleTabChange('diagnostics')}>
-                    <i className="fas fa-stethoscope"></i>
-                    System Diagnostics
+                    <i className="fas fa-stethoscope"></i> System Diagnostics
                   </button>
                 </div>
               </div>
@@ -960,10 +814,7 @@ export default function HMSDashboard() {
                 <i className="fas fa-plus"></i> Add Doctor
               </button>
             </div>
-            
-            {doctors.length === 0 ? (
-              <p>No doctors found.</p>
-            ) : (
+            {doctors.length === 0 ? <p>No doctors found.</p> : (
               <div className="doctors-grid">
                 {doctors.map(doctor => (
                   <div className="doctor-card" key={doctor.doctor_id || `doctor-${Math.random()}`}>
@@ -997,10 +848,7 @@ export default function HMSDashboard() {
                 <i className="fas fa-plus"></i> Register Patient
               </button>
             </div>
-            
-            {patients.length === 0 ? (
-              <p>No patients found.</p>
-            ) : (
+            {patients.length === 0 ? <p>No patients found.</p> : (
               <div className="table-responsive">
                 <table className="dashboard-table">
                   <thead>
@@ -1048,16 +896,10 @@ export default function HMSDashboard() {
             <div className="section-header">
               <h2>All Appointments</h2>
             </div>
-            
-            {/* Appointment filters */}
             <div className="filter-container">
               <div className="filter-group">
                 <label>Filter by Doctor:</label>
-                <select 
-                  name="doctorId"
-                  value={appointmentFilters.doctorId} 
-                  onChange={handleAppointmentFilterChange}
-                >
+                <select name="doctorId" value={appointmentFilters.doctorId} onChange={handleAppointmentFilterChange}>
                   <option value="">All Doctors</option>
                   {doctors.map(doctor => (
                     <option key={doctor.doctor_id} value={doctor.doctor_id}>
@@ -1066,14 +908,9 @@ export default function HMSDashboard() {
                   ))}
                 </select>
               </div>
-              
               <div className="filter-group">
                 <label>Filter by Patient:</label>
-                <select 
-                  name="patientId"
-                  value={appointmentFilters.patientId} 
-                  onChange={handleAppointmentFilterChange}
-                >
+                <select name="patientId" value={appointmentFilters.patientId} onChange={handleAppointmentFilterChange}>
                   <option value="">All Patients</option>
                   {patients.map(patient => (
                     <option key={patient.patient_id} value={patient.patient_id}>
@@ -1082,14 +919,9 @@ export default function HMSDashboard() {
                   ))}
                 </select>
               </div>
-              
               <div className="filter-group">
                 <label>Filter by Status:</label>
-                <select 
-                  name="status"
-                  value={appointmentFilters.status} 
-                  onChange={handleAppointmentFilterChange}
-                >
+                <select name="status" value={appointmentFilters.status} onChange={handleAppointmentFilterChange}>
                   <option value="">All Statuses</option>
                   <option value="Scheduled">Scheduled</option>
                   <option value="Confirmed">Confirmed</option>
@@ -1098,22 +930,11 @@ export default function HMSDashboard() {
                   <option value="Rescheduled">Rescheduled</option>
                 </select>
               </div>
-              
-              <button 
-                className="clear-filter-btn"
-                onClick={() => setAppointmentFilters({
-                  doctorId: '',
-                  patientId: '',
-                  status: ''
-                })}
-              >
+              <button className="clear-filter-btn" onClick={() => setAppointmentFilters({ doctorId: '', patientId: '', status: '' })}>
                 Clear Filters
               </button>
             </div>
-            
-            {appointments.length === 0 ? (
-              <p>No appointments found.</p>
-            ) : (
+            {appointments.length === 0 ? <p>No appointments found.</p> : (
               <div className="table-responsive">
                 <table className="dashboard-table">
                   <thead>
@@ -1165,10 +986,7 @@ export default function HMSDashboard() {
                 <i className="fas fa-plus"></i> Add Receptionist
               </button>
             </div>
-            
-            {receptionists.length === 0 ? (
-              <p>No receptionists found.</p>
-            ) : (
+            {receptionists.length === 0 ? <p>No receptionists found.</p> : (
               <div className="receptionists-grid">
                 {receptionists.map(receptionist => (
                   <div className="receptionist-card" key={receptionist.receptionist_id || `receptionist-${Math.random()}`}>
@@ -1205,126 +1023,34 @@ export default function HMSDashboard() {
         )}
       </div>
 
-      {/* Doctor Modal */}
+      {/* Modals */}
       {showDoctorModal && (
-      <Modal 
-        title={modalMode === 'add' ? 'Add New Doctor' : modalMode === 'edit' ? 'Edit Doctor' : 'Doctor Details'}
-          onClose={() => setShowDoctorModal(false)}
-          size="large"
-      >
-        <DoctorForm 
-          doctor={selectedItem} 
-          onSubmit={handleDoctorSubmit} 
-          onCancel={() => setShowDoctorModal(false)} 
-            readOnly={modalMode === 'view'}
-        />
-      </Modal>
+        <Modal title={modalMode === 'add' ? 'Add New Doctor' : modalMode === 'edit' ? 'Edit Doctor' : 'Doctor Details'} onClose={() => setShowDoctorModal(false)} size="large">
+          <DoctorForm doctor={selectedItem} onSubmit={handleDoctorSubmit} onCancel={() => setShowDoctorModal(false)} readOnly={modalMode === 'view'} />
+        </Modal>
       )}
 
-      {/* Patient Modal */}
       {showPatientModal && (
-      <Modal 
-        title={modalMode === 'add' ? 'Register New Patient' : modalMode === 'edit' ? 'Edit Patient' : 'Patient Details'}
-          onClose={() => setShowPatientModal(false)} 
-          size="large"
-      >
-        <PatientForm 
-          patient={selectedItem} 
-          onSubmit={handlePatientSubmit} 
-          onCancel={() => setShowPatientModal(false)} 
-            readOnly={modalMode === 'view'}
-        />
-      </Modal>
+        <Modal title={modalMode === 'add' ? 'Register New Patient' : modalMode === 'edit' ? 'Edit Patient' : 'Patient Details'} onClose={() => setShowPatientModal(false)} size="large">
+          <PatientForm patient={selectedItem} onSubmit={handlePatientSubmit} onCancel={() => setShowPatientModal(false)} readOnly={modalMode === 'view'} />
+        </Modal>
       )}
       
       {showReceptionistModal && (
-        <Modal 
-          title={modalMode === 'add' ? "Add New Receptionist" : modalMode === 'edit' ? "Edit Receptionist" : "Receptionist Details"} 
-          onClose={() => setShowReceptionistModal(false)}
-        >
-          <ReceptionistForm
-            receptionist={selectedItem}
-            onSubmit={handleReceptionistSubmit}
-            onCancel={() => setShowReceptionistModal(false)}
-          />
+        <Modal title={modalMode === 'add' ? "Add New Receptionist" : modalMode === 'edit' ? "Edit Receptionist" : "Receptionist Details"} onClose={() => setShowReceptionistModal(false)}>
+          <ReceptionistForm receptionist={selectedItem} onSubmit={handleReceptionistSubmit} onCancel={() => setShowReceptionistModal(false)} readOnly={modalMode === 'view'} />
         </Modal>
       )}
 
-      {/* Appointment Modal */}
       {showAppointmentModal && (
-      <Modal 
-          title={modalMode === 'add' ? 'Schedule New Appointment' : modalMode === 'edit' ? 'Appointment Details' : 'Appointment Details'}
-        onClose={() => setShowAppointmentModal(false)} 
-          size="large"
-      >
-        <AppointmentForm 
-          appointment={selectedItem} 
-          onSubmit={handleAppointmentSubmit} 
-          onCancel={() => setShowAppointmentModal(false)} 
-            readOnly={true}
-        />
-      </Modal>
+        <Modal title={modalMode === 'add' ? 'Schedule New Appointment' : 'Appointment Details'} onClose={() => setShowAppointmentModal(false)} size="large">
+          <AppointmentForm appointment={selectedItem} onSubmit={handleAppointmentSubmit} onCancel={() => setShowAppointmentModal(false)} readOnly={true} />
+        </Modal>
       )}
 
-      {/* Confirm Dialog */}
       {showConfirmDialog && (
-      <ConfirmDialog 
-          title="Confirm Delete"
-        onClose={() => setShowConfirmDialog(false)}
-        onConfirm={deleteAction}
-        message={`Are you sure you want to delete this ${
-          selectedItem?.doctor_id ? 'doctor' : 
-          selectedItem?.patient_id ? 'patient' : 
-          'appointment'
-        }?`}
-      />
-      )}
-      
-      {/* Log Details Modal */}
-      {showLogDetailsModal && selectedItem && (
-        <Modal
-          title={`Log Details - ${formatLogDate(selectedItem.timestamp)}`}
-          onClose={() => setShowLogDetailsModal(false)}
-          size="large"
-        >
-          <div className="log-details-container">
-            <div className="log-detail-row">
-              <span className="log-detail-label">Time:</span>
-              <span className="log-detail-value">{formatLogDate(selectedItem.timestamp)}</span>
-            </div>
-            <div className="log-detail-row">
-              <span className="log-detail-label">Level:</span>
-              <span className={`log-level-badge ${selectedItem.level}`}>
-                {selectedItem.level === 'error' && <i className="fas fa-exclamation-circle"></i>}
-                {selectedItem.level === 'warning' && <i className="fas fa-exclamation-triangle"></i>}
-                {selectedItem.level === 'info' && <i className="fas fa-info-circle"></i>}
-                {selectedItem.level.toUpperCase()}
-              </span>
-            </div>
-            <div className="log-detail-row">
-              <span className="log-detail-label">Source:</span>
-              <span className="log-detail-value">{selectedItem.source}</span>
-            </div>
-            <div className="log-detail-row">
-              <span className="log-detail-label">Message:</span>
-              <span className="log-detail-value">{selectedItem.message}</span>
-            </div>
-            {selectedItem.details && (
-              <div className="log-detail-row">
-                <span className="log-detail-label">Details:</span>
-                <div className="log-detail-json">
-                  <pre>{formatLogDetails(selectedItem.details)}</pre>
-                </div>
-              </div>
-            )}
-            <div className="modal-actions">
-              <button onClick={() => setShowLogDetailsModal(false)} className="btn">
-                Close
-              </button>
-            </div>
-          </div>
-        </Modal>
+        <ConfirmDialog title="Confirm Delete" onClose={() => setShowConfirmDialog(false)} onConfirm={deleteAction} message={`Are you sure you want to delete this ${selectedItem?.doctor_id ? 'doctor' : selectedItem?.patient_id ? 'patient' : 'appointment'}?`} />
       )}
     </div>
   );
-} 
+}

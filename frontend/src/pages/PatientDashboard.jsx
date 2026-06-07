@@ -42,46 +42,40 @@ const PatientDashboard = () => {
     setError(null);
     
     try {
-      // Check if the user is authenticated
-      const userResponse = await apiClient.get('/current-user/');
+      // 1. Check if the user is authenticated via the correct API namespace
+      const userResponse = await apiClient.get('/api/current-user/');
       
-      if (!userResponse.data || userResponse.data.userType !== 'Patient') {
-        // Redirect to login if not authenticated as a patient
+      // Look for user_type value coming back from your model serializer structure
+      const userType = userResponse.data?.user_type || userResponse.data?.userType;
+      if (!userResponse.data || userType?.toUpperCase() !== 'PATIENT') {
         navigate('/login');
         return;
       }
       
-      // Fetch patient profile
-      const patientProfileResponse = await apiClient.get('/patients/');
-      
-      // Find the current patient's profile
-      const patientProfile = patientProfileResponse.data.find(
-        profile => profile.user_details.id === userResponse.data.id
-      );
+      // 2. Fetch the logged-in patient's profile directly via your custom ViewSet action
+      const patientProfileResponse = await apiClient.get('/api/patients/my_profile/');
+      const patientProfile = patientProfileResponse.data;
       
       if (patientProfile) {
         setProfile(patientProfile);
         
-        // Fetch patient appointments
-        const appointmentsResponse = await apiClient.get('/appointments/');
+        // 3. Fetch specific accompanying clinical information sets with explicit API prefixing
+        const appointmentsResponse = await apiClient.get('/api/appointments/');
         setAppointments(appointmentsResponse.data || []);
         
-        // Fetch medical records
-        const medicalRecordsResponse = await apiClient.get('/medical-records/');
+        const medicalRecordsResponse = await apiClient.get('/api/medical-records/');
         setMedicalRecords(medicalRecordsResponse.data || []);
         
-        // Fetch lab test orders
-        const labTestsResponse = await apiClient.get('/lab-tests/');
+        const labTestsResponse = await apiClient.get('/api/lab-tests/');
         setLabTests(labTestsResponse.data || []);
         
-        // Fetch doctors for appointment scheduling
-        const doctorsResponse = await apiClient.get('/doctors/');
+        const doctorsResponse = await apiClient.get('/api/doctors/');
         setDoctors(doctorsResponse.data || []);
       } else {
         setError('Patient profile not found. Please contact support.');
       }
     } catch (err) {
-      console.error('Error fetching data:', err);
+      console.error('Error fetching data dashboard collection:', err);
       setError('Failed to load data. Please try again later.');
     } finally {
       setLoading(false);
@@ -91,11 +85,12 @@ const PatientDashboard = () => {
   // Handle profile update
   const handleProfileUpdate = async (updatedProfile) => {
     try {
-      await apiClient.patch(`/patients/${profile.id}/`, updatedProfile);
+      // Send updates straight to your dynamic token profile endpoint
+      await apiClient.patch('/api/patients/my_profile/', updatedProfile);
       setShowEditProfileModal(false);
-      fetchData(); // Refresh data
+      fetchData(); // Refresh dashboard states
     } catch (err) {
-      console.error('Error updating profile:', err);
+      console.error('Error updating profile data framework:', err);
       alert('Failed to update profile. Please try again.');
     }
   };
@@ -104,14 +99,14 @@ const PatientDashboard = () => {
   const handleAppointmentSubmit = async (appointmentData) => {
     try {
       if (modalMode === 'add') {
-        await apiClient.post('/appointments/', appointmentData);
+        await apiClient.post('/api/appointments/', appointmentData);
       } else if (modalMode === 'edit') {
-        await apiClient.patch(`/appointments/${selectedItem.id}/`, appointmentData);
+        await apiClient.patch(`/api/appointments/${selectedItem.id}/`, appointmentData);
       }
       setShowAppointmentModal(false);
-      fetchData(); // Refresh data
+      fetchData(); // Refresh data rows
     } catch (err) {
-      console.error('Error with appointment:', err);
+      console.error('Error handling appointment persistence:', err);
       alert(`An error occurred: ${err.message || 'Unknown error'}`);
     }
   };
@@ -121,10 +116,10 @@ const PatientDashboard = () => {
     setSelectedItem(appointment);
     setDeleteAction(() => async () => {
       try {
-        await apiClient.patch(`/appointments/${appointment.id}/cancel/`, {});
-        fetchData(); // Refresh data
+        await apiClient.patch(`/api/appointments/${appointment.id}/cancel/`, {});
+        fetchData(); // Refresh datasets
       } catch (err) {
-        console.error('Error cancelling appointment:', err);
+        console.error('Error cancelling appointment target:', err);
         alert(`Failed to cancel appointment: ${err.message || 'Unknown error'}`);
       }
       setShowConfirmDialog(false);
@@ -132,26 +127,23 @@ const PatientDashboard = () => {
     setShowConfirmDialog(true);
   };
 
-  // Handle viewing medical record details
+  // Handle viewing details
   const handleViewMedicalRecord = (record) => {
     setSelectedItem(record);
     setShowMedicalRecordModal(true);
   };
 
-  // Handle viewing lab test details
   const handleViewLabTest = (test) => {
     setSelectedItem(test);
     setShowLabTestModal(true);
   };
 
-  // Handle booking a new appointment
   const handleBookAppointment = () => {
     setSelectedItem(null);
     setModalMode('add');
     setShowAppointmentModal(true);
   };
 
-  // Handle editing profile
   const handleEditProfile = () => {
     setModalMode('edit');
     setShowEditProfileModal(true);
@@ -184,7 +176,12 @@ const PatientDashboard = () => {
     );
   }
 
-  // Render patient dashboard
+  // Safe variables parsing for nested details layers
+  const userDetails = profile?.user_details || {};
+  const firstName = userDetails.first_name || '';
+  const lastName = userDetails.last_name || '';
+  const emailAddress = userDetails.email || 'N/A';
+
   return (
     <div className="dashboard-container">
       {/* Dashboard Header */}
@@ -192,7 +189,7 @@ const PatientDashboard = () => {
         <h1>Patient Dashboard</h1>
         {profile && (
           <div className="user-welcome">
-            <p>Welcome, {profile.user_details.first_name} {profile.user_details.last_name}</p>
+            <p>Welcome, {firstName} {lastName}</p>
           </div>
         )}
       </header>
@@ -241,11 +238,11 @@ const PatientDashboard = () => {
                 <h3>Personal Information</h3>
                 <div className="profile-field">
                   <span className="field-label">Name:</span>
-                  <span className="field-value">{profile.user_details.first_name} {profile.user_details.last_name}</span>
+                  <span className="field-value">{firstName} {lastName}</span>
                 </div>
                 <div className="profile-field">
                   <span className="field-label">Email:</span>
-                  <span className="field-value">{profile.user_details.email}</span>
+                  <span className="field-value">{emailAddress}</span>
                 </div>
                 <div className="profile-field">
                   <span className="field-label">Date of Birth:</span>
@@ -291,38 +288,45 @@ const PatientDashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {appointments.map(appointment => (
-                      <tr key={appointment.id} className={`status-${appointment.status.toLowerCase()}`}>
-                        <td>{appointment.doctor_details.first_name} {appointment.doctor_details.last_name}</td>
-                        <td>{new Date(appointment.appointment_datetime).toLocaleString()}</td>
-                        <td>{appointment.reason}</td>
-                        <td>
-                          <span className={`status-badge ${appointment.status.toLowerCase()}`}>
-                            {appointment.status}
-                          </span>
-                        </td>
-                        <td className="actions-cell">
-                          <button 
-                            className="action-btn view-btn" 
-                            onClick={() => {
-                              setSelectedItem(appointment);
-                              setModalMode('view');
-                              setShowAppointmentModal(true);
-                            }}
-                          >
-                            <i className="fas fa-eye"></i>
-                          </button>
-                          {appointment.status === 'REQUESTED' || appointment.status === 'SCHEDULED' ? (
+                    {appointments.map(appointment => {
+                      const docInfo = appointment.doctor_details || {};
+                      const docFirst = docInfo.first_name || '';
+                      const docLast = docInfo.last_name || '';
+                      const appStatus = appointment.status || 'Requested';
+
+                      return (
+                        <tr key={appointment.id} className={`status-${appStatus.toLowerCase()}`}>
+                          <td>Dr. {docFirst} {docLast}</td>
+                          <td>{new Date(appointment.appointment_datetime || appointment.date).toLocaleString()}</td>
+                          <td>{appointment.reason}</td>
+                          <td>
+                            <span className={`status-badge ${appStatus.toLowerCase()}`}>
+                              {appStatus}
+                            </span>
+                          </td>
+                          <td className="actions-cell">
                             <button 
-                              className="action-btn delete-btn" 
-                              onClick={() => handleCancelAppointment(appointment)}
+                              className="action-btn view-btn" 
+                              onClick={() => {
+                                setSelectedItem(appointment);
+                                setModalMode('view');
+                                setShowAppointmentModal(true);
+                              }}
                             >
-                              <i className="fas fa-times"></i> Cancel
+                              <i className="fas fa-eye"></i>
                             </button>
-                          ) : null}
-                        </td>
-                      </tr>
-                    ))}
+                            {appStatus === 'REQUESTED' || appStatus === 'SCHEDULED' ? (
+                              <button 
+                                className="action-btn delete-btn" 
+                                onClick={() => handleCancelAppointment(appointment)}
+                              >
+                                <i className="fas fa-times"></i> Cancel
+                              </button>
+                            ) : null}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -343,33 +347,36 @@ const PatientDashboard = () => {
               </div>
             ) : (
               <div className="medical-records-grid">
-                {medicalRecords.map(record => (
-                  <div className="medical-record-card" key={record.id}>
-                    <div className="record-header">
-                      <h3>{record.record_type}</h3>
-                      <span className="record-date">{new Date(record.created_at).toLocaleDateString()}</span>
+                {medicalRecords.map(record => {
+                  const recDoc = record.doctor_details || {};
+                  return (
+                    <div className="medical-record-card" key={record.id}>
+                      <div className="record-header">
+                        <h3>{record.record_type}</h3>
+                        <span className="record-date">{new Date(record.created_at).toLocaleDateString()}</span>
+                      </div>
+                      <div className="record-doctor">
+                        <i className="fas fa-user-md"></i> Dr. {recDoc.first_name || ''} {recDoc.last_name || ''}
+                      </div>
+                      <p className="record-description">{record.description ? `${record.description.substring(0, 100)}...` : ''}</p>
+                      <div className="record-actions">
+                        <button className="action-btn" onClick={() => handleViewMedicalRecord(record)}>
+                          <i className="fas fa-eye"></i> View Details
+                        </button>
+                        {record.document && (
+                          <a 
+                            href={record.document} 
+                            className="action-btn download-btn" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                          >
+                            <i className="fas fa-download"></i> Download
+                          </a>
+                        )}
+                      </div>
                     </div>
-                    <div className="record-doctor">
-                      <i className="fas fa-user-md"></i> Dr. {record.doctor_details.first_name} {record.doctor_details.last_name}
-                    </div>
-                    <p className="record-description">{record.description.substring(0, 100)}...</p>
-                    <div className="record-actions">
-                      <button className="action-btn" onClick={() => handleViewMedicalRecord(record)}>
-                        <i className="fas fa-eye"></i> View Details
-                      </button>
-                      {record.document && (
-                        <a 
-                          href={record.document} 
-                          className="action-btn download-btn" 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                        >
-                          <i className="fas fa-download"></i> Download
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -400,43 +407,48 @@ const PatientDashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {labTests.map(test => (
-                      <tr key={test.id} className={`status-${test.status.toLowerCase()}`}>
-                        <td>{test.test_name}</td>
-                        <td>Dr. {test.ordered_by_doctor_details?.first_name} {test.ordered_by_doctor_details?.last_name}</td>
-                        <td>{new Date(test.order_datetime).toLocaleDateString()}</td>
-                        <td>
-                          <span className={`status-badge ${test.status.toLowerCase()}`}>
-                            {test.status.replace('_', ' ')}
-                          </span>
-                        </td>
-                        <td>
-                          {test.status === 'COMPLETED' ? (
-                            <span>{test.result_summary ? 'Available' : 'Not available'}</span>
-                          ) : (
-                            <span>Pending</span>
-                          )}
-                        </td>
-                        <td className="actions-cell">
-                          <button 
-                            className="action-btn view-btn" 
-                            onClick={() => handleViewLabTest(test)}
-                          >
-                            <i className="fas fa-eye"></i> View
-                          </button>
-                          {test.result_document && (
-                            <a 
-                              href={test.result_document} 
-                              className="action-btn download-btn" 
-                              target="_blank" 
-                              rel="noopener noreferrer"
+                    {labTests.map(test => {
+                      const ordDoc = test.ordered_by_doctor_details || {};
+                      const currentStatus = test.status || 'Ordered';
+
+                      return (
+                        <tr key={test.id} className={`status-${currentStatus.toLowerCase()}`}>
+                          <td>{test.test_name}</td>
+                          <td>Dr. {ordDoc.first_name || ''} {ordDoc.last_name || ''}</td>
+                          <td>{new Date(test.order_datetime || test.created_at).toLocaleDateString()}</td>
+                          <td>
+                            <span className={`status-badge ${currentStatus.toLowerCase()}`}>
+                              {currentStatus.replace('_', ' ')}
+                            </span>
+                          </td>
+                          <td>
+                            {currentStatus === 'COMPLETED' ? (
+                              <span>{test.result_summary ? 'Available' : 'Not available'}</span>
+                            ) : (
+                              <span>Pending</span>
+                            )}
+                          </td>
+                          <td className="actions-cell">
+                            <button 
+                              className="action-btn view-btn" 
+                              onClick={() => handleViewLabTest(test)}
                             >
-                              <i className="fas fa-download"></i>
-                            </a>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                              <i className="fas fa-eye"></i> View
+                            </button>
+                            {test.result_document && (
+                              <a 
+                                href={test.result_document} 
+                                className="action-btn download-btn" 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                              >
+                                <i className="fas fa-download"></i>
+                              </a>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -445,13 +457,9 @@ const PatientDashboard = () => {
         )}
       </main>
 
-      {/* Modals */}
-      {/* Edit Profile Modal */}
+      {/* Modals Package layout definition arrays */}
       {showEditProfileModal && (
-        <Modal 
-          title="Edit Profile" 
-          onClose={() => setShowEditProfileModal(false)}
-        >
+        <Modal title="Edit Profile" onClose={() => setShowEditProfileModal(false)}>
           <div className="form-container">
             <form onSubmit={(e) => {
               e.preventDefault();
@@ -503,12 +511,8 @@ const PatientDashboard = () => {
         </Modal>
       )}
 
-      {/* Appointment Modal */}
       {showAppointmentModal && (
-        <Modal 
-          title={modalMode === 'add' ? 'Book Appointment' : 'Appointment Details'} 
-          onClose={() => setShowAppointmentModal(false)}
-        >
+        <Modal title={modalMode === 'add' ? 'Book Appointment' : 'Appointment Details'} onClose={() => setShowAppointmentModal(false)}>
           <AppointmentForm 
             appointment={selectedItem} 
             doctors={doctors}
@@ -519,12 +523,8 @@ const PatientDashboard = () => {
         </Modal>
       )}
 
-      {/* Medical Record Modal */}
       {showMedicalRecordModal && selectedItem && (
-        <Modal 
-          title="Medical Record Details" 
-          onClose={() => setShowMedicalRecordModal(false)}
-        >
+        <Modal title="Medical Record Details" onClose={() => setShowMedicalRecordModal(false)}>
           <div className="medical-record-details">
             <div className="detail-group">
               <h3>Record Type</h3>
@@ -532,8 +532,8 @@ const PatientDashboard = () => {
             </div>
             <div className="detail-group">
               <h3>Doctor</h3>
-              <p>Dr. {selectedItem.doctor_details.first_name} {selectedItem.doctor_details.last_name}</p>
-              <p><i>{selectedItem.doctor_details.specialization}</i></p>
+              <p>Dr. {selectedItem.doctor_details?.first_name} {selectedItem.doctor_details?.last_name}</p>
+              <p><i>{selectedItem.doctor_details?.specialization}</i></p>
             </div>
             <div className="detail-group">
               <h3>Date</h3>
@@ -546,21 +546,13 @@ const PatientDashboard = () => {
             {selectedItem.document && (
               <div className="detail-group">
                 <h3>Document</h3>
-                <a 
-                  href={selectedItem.document} 
-                  className="action-btn download-btn" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                >
+                <a href={selectedItem.document} className="action-btn download-btn" target="_blank" rel="noopener noreferrer">
                   <i className="fas fa-download"></i> Download Document
                 </a>
               </div>
             )}
             <div className="form-actions">
-              <button 
-                className="btn-primary" 
-                onClick={() => setShowMedicalRecordModal(false)}
-              >
+              <button className="btn-primary" onClick={() => setShowMedicalRecordModal(false)}>
                 Close
               </button>
             </div>
@@ -568,12 +560,8 @@ const PatientDashboard = () => {
         </Modal>
       )}
 
-      {/* Lab Test Modal */}
       {showLabTestModal && selectedItem && (
-        <Modal 
-          title="Lab Test Details" 
-          onClose={() => setShowLabTestModal(false)}
-        >
+        <Modal title="Lab Test Details" onClose={() => setShowLabTestModal(false)}>
           <div className="lab-test-details">
             <div className="detail-group">
               <h3>Test Name</h3>
@@ -585,12 +573,12 @@ const PatientDashboard = () => {
             </div>
             <div className="detail-group">
               <h3>Order Date</h3>
-              <p>{new Date(selectedItem.order_datetime).toLocaleString()}</p>
+              <p>{new Date(selectedItem.order_datetime || selectedItem.created_at).toLocaleString()}</p>
             </div>
             <div className="detail-group">
               <h3>Status</h3>
-              <p className={`status-badge ${selectedItem.status.toLowerCase()}`}>
-                {selectedItem.status.replace('_', ' ')}
+              <p className={`status-badge ${selectedItem.status?.toLowerCase()}`}>
+                {selectedItem.status?.replace('_', ' ')}
               </p>
             </div>
             {selectedItem.status === 'COMPLETED' && selectedItem.result_summary && (
@@ -608,21 +596,13 @@ const PatientDashboard = () => {
             {selectedItem.result_document && (
               <div className="detail-group">
                 <h3>Result Document</h3>
-                <a 
-                  href={selectedItem.result_document} 
-                  className="action-btn download-btn" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                >
+                <a href={selectedItem.result_document} className="action-btn download-btn" target="_blank" rel="noopener noreferrer">
                   <i className="fas fa-download"></i> Download Results
                 </a>
               </div>
             )}
             <div className="form-actions">
-              <button 
-                className="btn-primary" 
-                onClick={() => setShowLabTestModal(false)}
-              >
+              <button className="btn-primary" onClick={() => setShowLabTestModal(false)}>
                 Close
               </button>
             </div>
@@ -630,7 +610,6 @@ const PatientDashboard = () => {
         </Modal>
       )}
 
-      {/* Confirm Dialog */}
       {showConfirmDialog && (
         <ConfirmDialog
           title="Cancel Appointment"
@@ -645,4 +624,4 @@ const PatientDashboard = () => {
   );
 };
 
-export default PatientDashboard; 
+export default PatientDashboard;

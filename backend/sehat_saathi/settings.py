@@ -41,11 +41,16 @@ INSTALLED_APPS = [
     
     # Third party apps
     'rest_framework',
+    'rest_framework.authtoken',
     'corsheaders',
     'django_extensions',
     
     # Local apps
     'hms_app',
+
+    
+    
+
 ]
 
 MIDDLEWARE = [
@@ -86,9 +91,9 @@ WSGI_APPLICATION = 'sehat_saathi.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'sehatSathi',
+        'NAME': 'sehatsathi',
         'USER': 'postgres',
-        'PASSWORD': '7410',
+        'PASSWORD': '1786',
         'HOST': 'localhost',
         'PORT': '5432',
     }
@@ -149,8 +154,8 @@ AUTH_USER_MODEL = 'hms_app.User'
 # REST Framework settings
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
-        'rest_framework.authentication.BasicAuthentication',
+        'rest_framework.authentication.TokenAuthentication',  # 👈 This must be first!
+        # 'rest_framework.authentication.SessionAuthentication', # 💡 Comment this out completely for now
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',

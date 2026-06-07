@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Permission, ContentType
+from django.contrib.auth.models import Permission
 from .models import (
     Department, Doctor, Patient, Appointment, 
     MedicalRecord, LabTest, Bill, SystemLog,
@@ -70,7 +70,6 @@ class UserSerializer(serializers.ModelSerializer):
         user.set_password(password)
         user.save()
         
-        # Assign roles
         for role in role_ids:
             UserRole.objects.create(user=user, role=role)
             
@@ -80,19 +79,14 @@ class UserSerializer(serializers.ModelSerializer):
         password = validated_data.pop('password', None)
         role_ids = validated_data.pop('role_ids', None)
         
-        # Update regular fields
         instance = super().update(instance, validated_data)
         
-        # Update password if provided
         if password:
             instance.set_password(password)
             instance.save()
         
-        # Update roles if provided
         if role_ids is not None:
-            # Clear existing roles
             instance.user_roles.all().delete()
-            # Add new roles
             for role in role_ids:
                 UserRole.objects.create(user=instance, role=role)
                 
@@ -126,24 +120,30 @@ class PatientSerializer(serializers.ModelSerializer):
                  'address', 'emergency_contact']
     
     def to_representation(self, instance):
-        # Print each patient as it's being serialized
-        print(f"Serializing patient: ID {instance.id}, User ID: {instance.user.id}, Name: {instance.user.first_name} {instance.user.last_name}")
         return super().to_representation(instance)
 
 class AppointmentSerializer(serializers.ModelSerializer):
     patient_name = serializers.SerializerMethodField()
     doctor_name = serializers.SerializerMethodField()
+    # Expanded deep relationship structures to allow bulletproof matching filters
+    patient_user_id = serializers.IntegerField(source='patient.user.id', read_only=True)
+    doctor_user_id = serializers.IntegerField(source='doctor.user.id', read_only=True)
     
     class Meta:
         model = Appointment
         fields = ['id', 'patient', 'doctor', 'patient_name', 'doctor_name',
-                 'date', 'time', 'reason', 'status', 'notification_status', 'created_at', 'updated_at']
+                 'patient_user_id', 'doctor_user_id', 'date', 'time', 'reason', 
+                 'status', 'notification_status', 'created_at', 'updated_at']
     
     def get_patient_name(self, obj):
-        return f"{obj.patient.user.first_name} {obj.patient.user.last_name}"
+        if obj.patient and obj.patient.user:
+            return f"{obj.patient.user.first_name} {obj.patient.user.last_name}"
+        return "Unknown Patient"
     
     def get_doctor_name(self, obj):
-        return f"Dr. {obj.doctor.user.first_name} {obj.doctor.user.last_name}"
+        if obj.doctor and obj.doctor.user:
+            return f"Dr. {obj.doctor.user.first_name} {obj.doctor.user.last_name}"
+        return "Unknown Doctor"
 
 class MedicalRecordSerializer(serializers.ModelSerializer):
     patient_name = serializers.SerializerMethodField()
@@ -214,4 +214,4 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return data
     
     def create(self, validated_data):
-        return User.objects.create_user(**validated_data) 
+        return User.objects.create_user(**validated_data)

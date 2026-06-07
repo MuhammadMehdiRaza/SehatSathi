@@ -1,118 +1,68 @@
-import axios from 'axios';
+import axios from "axios";
 
-// Function to get CSRF token from cookies
-function getCookie(name) {
-  let cookieValue = null;
-  if (document.cookie && document.cookie !== '') {
-    const cookies = document.cookie.split(';');
-    for (let i = 0; i < cookies.length; i++) {
-      const cookie = cookies[i].trim();
-      if (cookie.substring(0, name.length + 1) === (name + '=')) {
-        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-        break;
+// Create a new axios instance with your base URL mapping
+const instance = axios.create({
+  baseURL: "http://localhost:8000", // Django backend root URL
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+// Add a request interceptor to attach your Token dynamically on EVERY call
+instance.interceptors.request.use(
+  function (config) {
+    // 1. Pull the absolute fresh token value straight from the local storage disk
+    const authToken = localStorage.getItem("authToken");
+
+    // 2. Inject it directly into this specific outbound request's header map
+    // This stops the timing race condition on your dashboard components
+    if (authToken) {
+      config.headers["Authorization"] = `Token ${authToken}`;
+      console.log("Successfully injected dynamic Authorization Token header.");
+    } else {
+      console.log(
+        "No auth token found in storage - executing request as Guest.",
+      );
+    }
+
+    // Log request details for debugging
+    console.log(
+      `${config.method.toUpperCase()} Request to: ${config.baseURL}${config.url}`,
+    );
+    return config;
+  },
+  function (error) {
+    console.error("Request setup error tracing:", error);
+    return Promise.reject(error);
+  },
+);
+
+// Add a response interceptor to smoothly catch authentication roadblocks
+instance.interceptors.response.use(
+  function (response) {
+    console.log(`Successful Response from ${response.config.url}`);
+    return response;
+  },
+  function (error) {
+    console.error("Response processing error:", error);
+
+    // If a secure endpoint returns 401 Unauthorized, wipe local data
+    if (error.response && error.response.status === 401) {
+      console.log(
+        "Unauthorized context detected - clearing expired token data strings",
+      );
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("user");
+
+      // Only force a redirect refresh if the user isn't already trying to log in!
+      if (window.location.pathname !== "/login") {
+        console.log("Forcing route safety escape kickout back to login.");
+        window.location.href = "/login";
       }
     }
-  }
-  return cookieValue;
-}
 
-// Create a new axios instance with a specific base URL
-const instance = axios.create({
-  baseURL: 'http://localhost:8000',  // Django backend URL
-  withCredentials: true,  // Important for sending cookies with requests
-  headers: {
-    'Content-Type': 'application/json',
-  }
-});
+    return Promise.reject(error);
+  },
+);
 
-// Set proper CSRF settings
-instance.defaults.xsrfCookieName = 'csrftoken';
-instance.defaults.xsrfHeaderName = 'X-CSRFToken';
-
-// Request a CSRF token before starting the app
-const fetchCsrfToken = async () => {
-  try {
-    // Make a GET request to a Django endpoint that will set the CSRF cookie
-    await axios.get('http://localhost:8000/api-auth/login/', { withCredentials: true });
-    console.log('CSRF token cookie has been set');
-    return true;
-  } catch (error) {
-    console.error('Failed to fetch CSRF token:', error);
-    return false;
-  }
-};
-
-// Call this on app initialization
-fetchCsrfToken();
-
-// Add a request interceptor to include CSRF token
-instance.interceptors.request.use(function (config) {
-  // For non-GET requests, add CSRF token manually
-  if (config.method !== 'get') {
-    const csrfToken = getCookie('csrftoken');
-    if (csrfToken) {
-      config.headers['X-CSRFToken'] = csrfToken;
-      console.log('Added CSRF token to request:', csrfToken.substring(0, 5) + '...');
-    } else {
-      console.warn('No CSRF token found in cookies - this might cause authentication issues');
-      
-      // Try to load the CSRF token
-      fetchCsrfToken().then(success => {
-        if (success) {
-          console.log('Retrieved CSRF token, but too late for this request');
-        }
-      });
-    }
-  }
-  
-  // Check for authentication token
-  const authToken = localStorage.getItem('authToken');
-  
-  // Add Authentication header - even with session auth, this helps to see if token exists
-  if (authToken) {
-    // For session-based auth, we don't add a real token but this helps debugging
-    console.log('User has authentication token');
-  } else {
-    console.log('No auth token found');
-  }
-  
-  // Log the request details for debugging
-  console.log(`${config.method.toUpperCase()} Request to: ${config.baseURL}${config.url}`);
-  return config;
-}, function (error) {
-  console.error('Request error:', error);
-  return Promise.reject(error);
-});
-
-// Add a response interceptor for debugging
-instance.interceptors.response.use(function (response) {
-  // Log all responses for debugging
-  console.log(`Response from ${response.config.url}:`, response);
-  
-  // Additional specific logging for patients endpoint
-  if (response.config.url.includes('/patients/')) {
-    console.log('Patients Response Headers:', response.headers);
-    console.log('Patients Response Data:', response.data);
-    console.log('Number of items returned:', Array.isArray(response.data) ? response.data.length : 'Not an array');
-    
-    // If it's an array with only one element, log it in detail
-    if (Array.isArray(response.data) && response.data.length === 1) {
-      console.log('Single patient details:', response.data[0]);
-    }
-  }
-  return response;
-}, function (error) {
-  // Log error responses
-  console.error('Response error:', error);
-  
-  // If we get 401 Unauthorized, clear the token and redirect to login
-  if (error.response && error.response.status === 401) {
-    console.log('Unauthorized response - clearing token');
-    localStorage.removeItem('authToken');
-    window.location = '/login';
-  }
-  
-  return Promise.reject(error);
-});
-
-export default instance; 
+export default instance;

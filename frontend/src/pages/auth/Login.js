@@ -32,18 +32,28 @@ const Login = () => {
       email: Yup.string().email('Invalid email address').required('Email is required'),
       password: Yup.string().required('Password is required'),
     }),
-    onSubmit: async (values) => {
-      try {
-        setError('');
-        setLoading(true);
-        await login(values.email, values.password);
-        navigate('/dashboard');
-      } catch (err) {
-        setError(err.response?.data?.message || 'Failed to login');
-      } finally {
-        setLoading(false);
-      }
-    },
+  onSubmit: async (values, { setSubmitting }) => {
+  try {
+    setError('');
+    setLoading(true);
+    
+    // Explicitly await the context login trigger
+    await login(values.email, values.password);
+    
+    navigate('/dashboard');
+  } catch (err) {
+    // 💡 This block stops the page from refreshing and holds the message!
+    console.error("Caught login validation failure:", err);
+    
+    // Fallback error messaging extractor
+    const serverMessage = err.response?.data?.message || 'Invalid email or password.';
+    setError(serverMessage);
+  } finally {
+    setLoading(false);
+    setSubmitting(false);
+  }
+  
+},
   });
 
   const handleClickShowPassword = () => {
